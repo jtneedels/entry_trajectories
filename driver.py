@@ -1,4 +1,4 @@
-import skaero.atmosphere.coesa as sk
+import atmosphere as atm
 from scipy.integrate import solve_ivp
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,7 +26,7 @@ for fpa_o in fpa_o_vec:
 
 			fpa, x, y, v = z
 
-			return .5 * sk.density(y) * v ** 2 - q_lim
+			return .5 * atm.get_density(y) * v ** 2 - q_lim
 
 		def altitude_limit(t, z, v0, y0, vehicle):
 
@@ -58,7 +58,16 @@ fpa, x, y, v = process_solutions(dive_sol, glide_sol, missile, y0, v0)
 points = extract_trajectory_point_data(dive_sol, glide_sol, missile, y0, v0, [100e3, 200e3, 300e3, 400e3, 500e3, 1000e3, 1500e3, 2000e3, 2500e3])
 
 for point in points:
-	print('Alt: ', point.y, 'Press: ', point.P, 'Temp: ', point.T, 'Ma: ', point.Ma)
-	plt.scatter(point.x/1e3, point.y/1e3, color='black')
+	print('Alt: ', point.y, 'Press: ', point.P, 'Temp: ', point.T, 'Ma: ', point.Ma, 'v: ', point.v)
+	plt.scatter(point.x/1e3, point.y/1e3)
 
+plt.show()
+
+for point in points:
+	plt.scatter(point.Ma, point.Tw)
+
+plt.ylabel('Tw [K]')
+plt.xlabel('Ma ')
+plt.title('Tw History, 5 deg inclination, 1 m axial position')
+plt.grid('minor')
 plt.show()

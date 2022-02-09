@@ -7,5 +7,6 @@ g = 9.81 # m/s2
 re = 6.3781e6 # m radius of earth
 
 gamma = 1.4 # specific heat ratio
-R = 287 # specific gas constant - air\
+R = 287 # specific gas constant - air
+Ru = 8314
 H = 8.4e3 # scale height m

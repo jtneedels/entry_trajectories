@@ -4,7 +4,7 @@ import scipy.special as special
 from scipy.integrate import quad, dblquad
 from scipy.optimize import fsolve
 import constants as const
-import skaero.atmosphere.coesa as sk
+import atmosphere as atm
 
 c = const.c # speed of light [m/s]
 h = const.h # Planck's constant [m2 kg / s]
@@ -18,7 +18,7 @@ def stagnation_heating(Tw, y, v, rn):
 	hw = v ** 2 + 2.3e5
 	h0 = 1e3 * Tw
 	
-	q = 1.83e-4 / np.sqrt(rn) * (1 - (hw / h0)) * sk.density(y) * v ** 3
+	q = np.abs(1.83e-4 / np.sqrt(rn) * (1 - (hw / h0)) * atm.get_density(y) * v ** 3)
 
 	return q
 
@@ -28,14 +28,78 @@ def convective_heating(Tw, y, v, pos, theta):
 	h0 = 1e3 * Tw
 	
 	if v > 4e3:
-		2.2e-5*(np.cos(np.radians(theta)) ** 2.08 * np.sin(np.radians(theta)) ** 1.6) / (pos ** 0.2) * (1 - 1.11 * hw / h0) * sk.density(y) ** 0.8 * v ** 3.7
+		q = np.abs(2.2e-5*(np.cos(np.radians(theta)) ** 2.08 * np.sin(np.radians(theta)) ** 1.6) / (pos ** 0.2) * (1 - 1.11 * hw / h0) * atm.get_density(y) ** 0.8 * v ** 3.7)
 	else:
-		3.89e-4*(np.cos(np.radians(theta)) ** 1.78 * np.sin(np.radians(theta)) ** 1.6) / (pos ** 0.2) * (1 - 1.11 * hw / h0) * (556/Tw) ** 0.25 * sk.density(y) ** 0.8 * v ** 3.37
+		q = np.abs(3.89e-4*(np.cos(np.radians(theta)) ** 1.78 * np.sin(np.radians(theta)) ** 1.6) / (pos ** 0.2) * (1 - 1.11 * hw / h0) * (556/Tw) ** 0.25 * atm.get_density(y) ** 0.8 * v ** 3.37)
 	
 	return q
 
-def equilibrium_wall_temperature():
+def radiatve_heating(Tw):
+
+	sigma = 5.67e-8
+	e = 1
+
+	return e * sigma * pow(Tw,4)
+
+def equilibrium_wall_temperature_convective(y, v, pos, theta):
+
+	a = 1
+	b = 8e4
+
+	Nmax = 50
+	N = 0
+	tol = 1e-6
+
+	while N < Nmax:
+
+		Tw = (a + b) / 2
+
+		q_conv_a = convective_heating(a, y, v, pos, theta)
+		q_conv_b = convective_heating(b, y, v, pos, theta)
+		q_conv_Tw = convective_heating(Tw, y, v, pos, theta)
+
+		q_rad_a = radiatve_heating(a)
+		q_rad_b = radiatve_heating(b)
+		q_rad_Tw = radiatve_heating(Tw)
+
+		if q_conv_Tw - q_rad_Tw == 0 or (b - a) / 2 < tol:
+			break
+
+		if (q_conv_Tw - q_rad_Tw > 0 and q_conv_Tw - q_rad_a > 0) or (q_conv_a - q_rad_Tw < 0 and q_conv_a - q_rad_a < 0):
+			a = Tw  
+		else:
+			b = Tw
 	
+	return Tw
+
+def equilibrium_wall_temperature_stagnation(y, v, rn):
+
+	a = 1
+	b = 8e4
+
+	Nmax = 50
+	N = 0
+	tol = 1e-6
+
+	while N < Nmax:
+
+		Tw = (a + b) / 2
+
+		q_stag_a = stagnation_heating(a, y, v, rn)
+		q_stag_b = stagnation_heating(b, y, v, rn)
+		q_stag_Tw = stagnation_heating(Tw, y, v, rn)
+
+		q_rad_a = radiatve_heating(a)
+		q_rad_b = radiatve_heating(b)
+		q_rad_Tw = radiatve_heating(Tw)
+
+		if q_stag_Tw - q_rad_Tw == 0 or (b - a) / 2 < tol:
+			break
+
+		if (q_stag_Tw - q_rad_Tw > 0 and q_stag_Tw - q_rad_a > 0) or (q_stag_a - q_rad_Tw < 0 and q_stag_a - q_rad_a < 0):
+			a = Tw  
+		else:
+			b = Tw
 	
 	return Tw
 
@@ -84,7 +148,15 @@ def temperature_distribution(x):
 
 	"""
 
-	T = 1000 - x*500
+	y = 40e3
+	v = 3300
+	theta = 5
+	rn = 0.034
+
+	if x == 0:
+		T = equilibrium_wall_temperature_convective(y, v, x, theta)
+	else:
+		T = equilibrium_wall_temperature_stagnation(y, v, rn)
 
 	return T
 
@@ -102,7 +174,7 @@ def double_integral_wavelength(wav_min, wav_max, x_min, x_max):
 
 	"""
 
-    return dblquad(lambda x, wavelength: spectral_radiance_wavelength(wavelength, temperature_distribution(x)), wav_min, wav_max, x_min, x_max)
+	return dblquad(lambda x, wavelength: spectral_radiance_wavelength(wavelength, temperature_distribution(x)), wav_min, wav_max, x_min, x_max)
 
 def double_integral_frequency(freq_min, freq_max, x_min, x_max):
 	""" Integrates over frequency range and 1D region to find radiant intensity (radiant flux per solid angle element).
@@ -118,6 +190,4 @@ def double_integral_frequency(freq_min, freq_max, x_min, x_max):
 
 	"""
 
-    return dblquad(lambda x, wavelength: spectral_radiance_frequency(frequency, temperature_distribution(x)), freq_min, freq_max, x_min, x_max)
-
-print(double_integral_wavelength(7.8e-7, 1e-3, 0, 1))
+	return dblquad(lambda x, wavelength: spectral_radiance_frequency(frequency, temperature_distribution(x)), freq_min, freq_max, x_min, x_max)

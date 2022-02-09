@@ -1,13 +1,14 @@
 import numpy as np
-import skaero.atmosphere.coesa as sk
+import atmosphere as atm
 import constants as const
 import matplotlib.pyplot as plt
+import thermal as th
 
 class dp_point:
     """ Class for holding extracted data points.
 
     """
-    def __init__(self, x, y, v, rho, P, T, Ma):
+    def __init__(self, x, y, v, rho, P, T, Ma, Tw):
         """ Initializer method.
 
         Args:
@@ -17,6 +18,7 @@ class dp_point:
             rho: density kg/m3
             T: temperature K
             Ma: Mach number
+            Tw: Equilibrium wall temperature K
 
         """
         self.x = x
@@ -26,6 +28,7 @@ class dp_point:
         self.P = P
         self.T = T
         self.Ma = Ma
+        self.Tw = Tw
 
 def find_nearest_index(val, target):
     """ Finds index of nearest solution points to queried values.
@@ -65,12 +68,13 @@ def get_freestream_conditions(idx, fpa, x, y, v):
     x_i = x
     y_i = y
     v_i = v
-    rho_i = sk.density(y_i)
-    P_i = sk.pressure(y_i)
-    T_i = sk.temperature(y_i)
-    Ma_i = v_i / np.sqrt(gamma * R * T_i)
+    rho_i = atm.get_density(y_i)
+    P_i = atm.get_pressure(y_i)
+    T_i = atm.get_temperature(y_i)
+    Ma_i = v_i / np.sqrt(gamma * atm.get_R(y_i) * T_i)
+    Tw_i = th.equilibrium_wall_temperature_convective(y, v, 1, 5)
 
-    return dp_point(x_i, y_i, v_i, rho_i, P_i, T_i, Ma_i)
+    return dp_point(x_i, y_i, v_i, rho_i, P_i, T_i, Ma_i, Tw_i)
 
 def process_solutions(dive_sol, glide_sol, vehicle, y0, v0):
     """ Converts solve_ivp solutions into arrays and concatenates arrays 
@@ -101,9 +105,9 @@ def process_solutions(dive_sol, glide_sol, vehicle, y0, v0):
     v = dive_sol.y[3]
 
     for i in range(len(glide_sol.y[0])):
-        v_temp = np.sqrt(sk.density(y0)/sk.density(glide_sol.y[1][i])) * v0
+        v_temp = np.sqrt(atm.get_density(y0)/atm.get_density(glide_sol.y[1][i])) * v0
         v = np.append(v, v_temp)
-        fpa = np.append(fpa, 1 / vehicle.L_D / (1 + v_temp ** 2 / 2 / g / 8.4e3))
+        fpa = np.append(fpa, 1 / vehicle.L_D / (1 + v_temp ** 2 / 2 / g / 8.4e3)) # TODO: variable scale height
 
     return fpa, x, y, v
 

@@ -1,4 +1,4 @@
-import skaero.atmosphere.coesa as sk
+import atmosphere as atm
 from scipy.integrate import solve_ivp
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,10 +27,10 @@ def dive_pull_dynamics(t, z, vehicle):
     L_D = vehicle.L_D
     b = vehicle.b 
 
-    dfpa_dt = 1/v * (-.5 * sk.density(y) * (v ** 2) * L_D /b + g * np.cos(fpa) - v ** 2 / (re + y) * np.cos(fpa))
+    dfpa_dt = 1/v * (-.5 * atm.get_density(y) * (v ** 2) * L_D /b + g * np.cos(fpa) - v ** 2 / (re + y) * np.cos(fpa))
     dx_dt = v * np.cos(fpa)
     dy_dt = -v * np.sin(fpa)
-    dv_dt = -.5 * sk.density(y) * (v ** 2) / b + g * np.sin(fpa)
+    dv_dt = -.5 * atm.get_density(y) * (v ** 2) / b + g * np.sin(fpa)
     
     return [dfpa_dt, dx_dt, dy_dt, dv_dt]
 
@@ -52,7 +52,7 @@ def glide_dynamics(t, z, v0, y0, vehicle):
     L_D = vehicle.L_D
     b = vehicle.b 
 
-    v = np.sqrt(sk.density(y0)/sk.density(y)) * v0
+    v = np.sqrt(atm.get_density(y0)/atm.get_density(y)) * v0
     fpa =  1 / L_D / (1 + v ** 2 / 2 / g / H)
 
     dx_dt = v * np.cos(fpa)
